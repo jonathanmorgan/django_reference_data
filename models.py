@@ -40,6 +40,10 @@ class Reference_Domain( models.Model ):
 
 
     DOMAIN_TYPE_NEWS = 'news'
+    
+    # URL parse return types
+    URL_PARSE_RETURN_DOMAIN = "domain"
+    URL_PARSE_RETURN_PATH = "path"
 
     
     #============================================================================
@@ -65,6 +69,78 @@ class Reference_Domain( models.Model ):
     last_update = models.DateTimeField( auto_now = True )
 
     
+    #============================================================================
+    # class methods
+    #============================================================================
+
+
+    @classmethod
+    def parse_URL( cls, URL_IN = "", return_type_IN = URL_PARSE_RETURN_DOMAIN, *args, **kwargs ):
+        
+        # return reference
+        value_OUT = ""
+        
+        # declare variables
+        domain_name = ""
+        slash_index = -1
+        url_path = ""
+        
+        # place the URL in domain_name
+        domain_name = URL_IN
+        
+        # strip off https://
+        domain_name = domain_name.replace( "https://", "" )
+        
+        # strip off http://
+        domain_name = domain_name.replace( "http://", "" )
+        
+        # strip off www.
+        domain_name = domain_name.replace( "www.", "" )
+        
+        # normal domaindomain path?
+        slash_index = domain_name.find( "/" )
+        if ( slash_index >= 0 ):
+        
+            # there is path information in domain.  Take string from "/" to end,
+            #    store it as domain path.  Take string up to but not including
+            #    the "/", keep that as domain.
+            url_path = domain_name[ slash_index : ]
+            domain_name = domain_name[ : slash_index ]
+        
+        else:
+        
+            # no slashes - make sure path is empty.
+            url_path = ""
+        
+        #-- END check to see if path information. --#
+        
+        # is path just "/"?  If so, set to "".
+        if ( url_path == "/" ):
+        
+            # yup. Set to "".
+            url_path = ""
+        
+        #-- END check to see if path is just "/" --#
+        
+        # see what we've been asked to return
+        if ( return_type_IN == cls.URL_PARSE_RETURN_PATH ):
+        
+            # path
+            value_OUT = url_path
+            
+        else:
+        
+            # domain
+            value_OUT = domain_name
+            
+        #-- END check to see what we return. --#
+        
+        return value_OUT
+        
+    #-- END method parse_URL() --#
+    
+
+
     #============================================================================
     # instance methods
     #============================================================================
