@@ -168,6 +168,20 @@ class Reference_Domain( models.Model ):
         
         #-- END check to see if domain_name --#
         
+        # description
+        if ( self.description ):
+        
+            string_OUT += " - " + self.description
+        
+        #-- END check to see if description --#
+        
+        # source
+        if ( self.source ):
+
+            string_OUT += " ( from: " + self.source + " )"
+            
+        #-- END check to see if source --#
+        
         return string_OUT
 
     #-- END __str__() method --#
