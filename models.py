@@ -67,6 +67,7 @@ class Reference_Domain( models.Model ):
     zip_code = models.CharField( max_length = 255, null = True, blank = True )
     email = models.CharField( max_length = 255, null = True, blank = True )
     phone = models.CharField( max_length = 255, null = True, blank = True )
+    fax = models.CharField( max_length = 255, null = True, blank = True )
     label = models.CharField( max_length = 255, null = True, blank = True )
     create_date = models.DateTimeField( auto_now_add = True )
     last_update = models.DateTimeField( auto_now = True )
