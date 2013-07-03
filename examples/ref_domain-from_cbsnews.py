@@ -53,6 +53,9 @@ current_source_details = ""
 current_domain_type = ""
 current_is_news = True
 current_rank = -1
+station_name = ""
+station_url = ""
+cleaned_url = ""
 
 # init beautiful soup helper
 bs_helper = python_utilities.beautiful_soup.beautiful_soup_helper.BeautifulSoupHelper()
@@ -157,50 +160,20 @@ for state_bold_tag in state_bold_tag_list:
                     current_city = " ".join( station_name_list )
                     
                     # domain name
-                    current_domain_name = station_url
+                    cleaned_url = station_url
                     
                     # first, see if this URL contains "/forward/"
-                    redirect_index = current_domain_name.find( URL_FORWARD_STRING )
+                    redirect_index = cleaned_url.find( URL_FORWARD_STRING )
                     if ( redirect_index >= 0 ):
                     
                         # yes.  strip off everything before "/forward/"
-                        current_domain_name = current_domain_name[ ( redirect_index + len( URL_FORWARD_STRING ) ) : ]
+                        cleaned_url = cleaned_url[ ( redirect_index + len( URL_FORWARD_STRING ) ) : ]
                     
                     #-- END check to see if domain has "/forward/" --#
 
-                    # strip off https://
-                    current_domain_name = current_domain_name.replace( "https://", "" )
-                    
-                    # strip off http://
-                    current_domain_name = current_domain_name.replace( "http://", "" )
-                    
-                    # strip off www.
-                    current_domain_name = current_domain_name.replace( "www.", "" )
-                    
-                    # normal domaindomain path?
-                    slash_index = current_domain_name.find( "/" )
-                    if ( slash_index >= 0 ):
-                    
-                        # there is path information in domain.  Take string from "/" to end,
-                        #    store it as domain path.  Take string up to but not including
-                        #    the "/", keep that as domain.
-                        current_domain_path = current_domain_name[ slash_index : ]
-                        current_domain_name = current_domain_name[ : slash_index ]
-                    
-                    else:
-                    
-                        # no slashes - make sure path is empty.
-                        current_domain_path = ""
-                    
-                    #-- END check to see if path information. --#
-                    
-                    # is path just "/"?  If so, set to "".
-                    if ( current_domain_path == "/" ):
-                    
-                        # yup. Set to "".
-                        current_domain_path = ""
-                    
-                    #-- END check to see if path is just "/" --#
+                    # parse out domain and path
+                    current_domain_name = django_reference_data.models.Reference_Domain.parse_URL( cleaned_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_DOMAIN )
+                    current_domain_path = django_reference_data.models.Reference_Domain.parse_URL( cleaned_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_PATH )
             
                     # no rank
                     
