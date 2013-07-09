@@ -191,7 +191,11 @@ The Postal\_Code model is designed based on free data from [http://geonames.org]
 
 To get these files, go to [http://download.geonames.org/export/dump/](http://download.geonames.org/export/dump/) ( for the United States: [http://download.geonames.org/export/dump/US.zip](http://download.geonames.org/export/dump/US.zip) ).
 
-There is a fixture for this model that includes the postal codes for the United States, from a geonames file US.zip downloaded most recently on July 3, 2013.
+There is a fixture for this model that includes the postal codes for the United States, from a geonames file US.zip downloaded most recently on July 3, 2013.  It is /fixtures/postal\_codes\_US.json.  To load it:
+
+        python manage.py loaddata postal_codes_US.json
+
+The original tab-delimited file zip archive is also in the respository: /examples/US-ZIP-2012.07.02 (includes readme, tab-delimited postal code file, and that same file converted to Excel).
 
 ## License:
 
