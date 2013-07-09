@@ -28,7 +28,96 @@ from django.utils.encoding import python_2_unicode_compatible
 
 # Create your models here.
 
-# !TODO abstract parent class, since just about everything is identical between these.
+@python_2_unicode_compatible
+class Postal_Code( models.Model ):
+    
+    '''
+    This model is designed based on free data from http://geonames.org,
+        specifically the country-by-country tab-delimited files of postal codes.
+        The fields are moved around a bit, but all fields in those files are in
+        this database table, and if you wanted to, you could import them all.
+    - To get these files, go to: http://download.geonames.org/export/dump/
+    - For the United States: http://download.geonames.org/export/dump/US.zip
+    - There is also a fixture for this model that includes the postal codes for
+        the United States, from a geonames file US.zip downloaded most recently
+        on July 3, 2013.
+    '''
+    
+    #============================================================================
+    # constants-ish
+    #============================================================================
+
+
+    #============================================================================
+    # Django model fields
+    #============================================================================
+    
+    country_code = models.CharField( max_length = 255 )
+    postal_code = models.CharField( max_length = 255 )
+    place_name = models.CharField( max_length = 255, null = True, blank = True )
+    admin_name1 = models.CharField( max_length = 255, null = True, blank = True ) # state name for U.S.
+    admin_code1 = models.CharField( max_length = 255, null = True, blank = True ) # state abbreviation for U.S.
+    admin_name2 = models.CharField( max_length = 255, null = True, blank = True ) # county/province for U.S.
+    admin_code2 = models.CharField( max_length = 255, null = True, blank = True ) # county/province ID for U.S.
+    admin_name3 = models.CharField( max_length = 255, null = True, blank = True ) # community for U.S.
+    admin_code3 = models.CharField( max_length = 255, null = True, blank = True ) # community ID for U.S.
+    latitude = models.DecimalField( max_digits = 13, decimal_places = 10 )
+    longitude = models.DecimalField( max_digits = 13, decimal_places = 10 )
+    lat_long_accuracy = models.CharField( max_length = 255, null = True, blank = True )
+    create_date = models.DateTimeField( auto_now_add = True )
+    last_update = models.DateTimeField( auto_now = True )
+
+    
+    #============================================================================
+    # class methods
+    #============================================================================
+
+
+    #============================================================================
+    # instance methods
+    #============================================================================
+
+
+    def __str__(self):
+        
+        # return reference
+        string_OUT = ""
+        
+        # id?
+        if ( ( self.id ) and ( self.id != None ) and ( self.id > 0 ) ):
+        
+            string_OUT += "Postal Code " + str( self.id )
+        
+        #-- END check to see if id --#
+        
+        # postal_code
+        if( self.postal_code ):
+        
+            string_OUT += " - " + self.postal_code
+        
+        #-- END check to see if postal_code --#
+        
+        # place
+        if ( self.place_name ):
+        
+            string_OUT += " - " + self.place_name
+        
+        #-- END check to see if place_name --#
+        
+        # state
+        if ( self.admin_name1 ):
+
+            string_OUT += " in " + self.admin_name1
+            
+        #-- END check to see if state --#
+        
+        return string_OUT
+
+    #-- END __str__() method --#
+
+
+#-- END class Postal_Code --#
+
 
 @python_2_unicode_compatible
 class Reference_Domain( models.Model ):

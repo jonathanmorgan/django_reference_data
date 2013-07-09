@@ -185,6 +185,14 @@ There is also a fixture of news domains you can import into the reference\_domai
 
         python manage.py loaddata reference_domains_news.json
 
+### Postal Codes
+
+The Postal\_Code model is designed based on free data from [http://geonames.org](http://geonames.org), specifically the country-by-country tab-delimited files of postal codes.  The fields are moved around a bit, but all fields in those files are in this database table, and if you wanted to, you could import them all.
+
+To get these files, go to [http://download.geonames.org/export/dump/](http://download.geonames.org/export/dump/) ( for the United States: [http://download.geonames.org/export/dump/US.zip](http://download.geonames.org/export/dump/US.zip) ).
+
+There is a fixture for this model that includes the postal codes for the United States, from a geonames file US.zip downloaded most recently on July 3, 2013.
+
 ## License:
 
 Copyright 2012, 2013 Jonathan Morgan
