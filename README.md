@@ -177,6 +177,10 @@ Then, there are numerous examples in /examples you can use to try out different 
 
 - ref\_domain-from\_alexa.py - pull in domains from alexa's lists of most popular web sites.
 - ref\_domain-from\_cbsnews.py - pull in domain names of CBS news' local affiliate stations' web sites.
+- ref\_domain-from\_abc.py - pull in domain names of ABC local affiliate stations' web sites from ABC's web site.
+- ref\_domain-from\_nbc.py - pull in domain names of NBC local affiliate stations' web sites from a database table made by copying and pasting contents of NBC's affiliate finder by hand (yeah...).
+- ref\_domain-from\_fox.py - pull in domain names of Fox local affiliate stations' web sites from Fox's web site.
+- ref\_domain-from\_npr.py - pull in domain names of NPR stations' web sites from NPR Station Finder API, using city/state combinations from postal code database.
 - ref\_domain-from\_listofnewspapers - pull in domains of newspaper websites in the United States from listofnewspapers.com.
 
 These are good examples of how to use Beautiful Soup 4, also, if you are interested!
