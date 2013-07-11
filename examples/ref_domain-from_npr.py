@@ -243,7 +243,8 @@ for i in range( result_count ):
     #bs_parser = "html.parser"
     #bs_parser = "lxml"
     #bs_parser = "html5lib"
-    npr_bs = BeautifulSoup( npr_xml, "xml" )
+    bs_parser = "xml"
+    npr_bs = BeautifulSoup( npr_xml, bs_parser )
     
     if ( debug_flag == True ):
         print( str( npr_bs ) )

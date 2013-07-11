@@ -181,7 +181,7 @@ class Reference_Domain( models.Model ):
         url_path = ""
         
         # place the URL in domain_name
-        domain_name = URL_IN
+        domain_name = URL_IN.strip()
         
         # strip off https://
         domain_name = domain_name.replace( "https://", "" )

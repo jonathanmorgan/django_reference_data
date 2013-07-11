@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 
 # python_utilties
 import python_utilities.beautiful_soup.beautiful_soup_helper
+from python_utilities.strings.string_helper import StringHelper
 
 # django_reference_data
 import django_reference_data.models
@@ -323,13 +324,7 @@ for page_url in page_list:
             station_description += " - " + station_call_sign + " - " + station_address + "; " + station_city + ", " + station_state + " " + station_zip_code
             
             # clean out new lines
-            station_description = station_description.replace( "\n", "" )
-            
-            # clean out tabs
-            station_description = station_description.replace( "\t", "" )
-            
-            # clean out multiple spaces
-            station_description = re.sub( "\s\s+", " ", station_description )
+            station_description = StringHelper.clean_string( station_description )
             
             # do we have a URL?
             if ( ( station_url ) and ( station_url != None ) and ( station_url != "" ) ):
