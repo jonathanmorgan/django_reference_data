@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 import django_reference_data.models
 
 # declare variables
+do_update_existing = True
 url_prefix = ""
 url_category_path = ""
 page_index = -1
@@ -69,6 +70,7 @@ for page_index in range( page_count ):
         # collect information - init
         current_domain_name = ""
         slash_index = ""
+        cleaned_url = ""
         current_domain_path = ""
         current_description = ""
         current_source = ""
@@ -83,30 +85,11 @@ for page_index in range( page_count ):
         
         # domain name
         temp_bs = current_li.find( "span", "topsites-label" )
-        current_domain_name = temp_bs.get_text()
-        
-        # strip off https://
-        current_domain_name = current_domain_name.replace( "https://", "" )
-        
-        # strip off www
-        current_domain_name = current_domain_name.replace( "www", "" )
-        
-        # domain path?
-        slash_index = current_domain_name.find( "/" )
-        if ( slash_index >= 0 ):
-        
-            # there is path information in domain.  Take string from "/" to end,
-            #    store it as domain path.  Take string up to but not including
-            #    the "/", keep that as domain.
-            current_domain_path = current_domain_name[ slash_index : ]
-            current_domain_name = current_domain_name[ : slash_index ]
-        
-        else:
-        
-            # no slashes - make sure path is empty.
-            current_domain_path = ""
-        
-        #-- END check to see if path information. --#
+        cleaned_url = temp_bs.get_text()
+
+        # parse out domain and path
+        current_domain_name = django_reference_data.models.Reference_Domain.parse_URL( cleaned_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_DOMAIN )
+        current_domain_path = django_reference_data.models.Reference_Domain.parse_URL( cleaned_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_PATH )
 
         # rank
         temp_bs = current_li.find( "div", "count" )
@@ -118,13 +101,39 @@ for page_index in range( page_count ):
         current_domain_type = django_reference_data.models.Reference_Domain.DOMAIN_TYPE_NEWS
         current_is_news = True
         
-        # make Reference_Domain instance
-        current_domain_instance = django_reference_data.models.Reference_Domain()
+        # update existing?
+        if ( do_update_existing == True ):
+
+            try:
+
+                # first, try looking up existing domain.
+                domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
+                domain_rs = domain_rs.filter( domain_name = current_domain_name )
+                domain_rs = domain_rs.filter( domain_path = current_domain_path )
+                current_domain_instance = domain_rs.get( description = current_description )
+            
+            except:
+            
+                # No matching row.  Create new instance.
+                current_domain_instance = django_reference_data.models.Reference_Domain()
+                
+            #-- END attempt to get existing row. --#
+
+        else:
+        
+            # not updating.  Just create new instance.
+            current_domain_instance = django_reference_data.models.Reference_Domain()
+        
+        #-- END check to see if we update existing. --#
         
         # set values
-        current_domain_instance.domain_name = current_domain_name
-        current_domain_instance.domain_path = current_domain_path
+        #current_domain_instance.domain_name = current_domain_name
+        #current_domain_instance.domain_path = current_domain_path
         # current_domain_instance.long_name = None
+
+        # parse and store the URL information.
+        current_domain_instance.parse_and_store_URL( cleaned_url )
+                        
         current_domain_instance.description = current_description
         current_domain_instance.source = current_source
         current_domain_instance.source_details = current_source_details

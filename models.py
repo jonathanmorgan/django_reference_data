@@ -26,6 +26,9 @@ along with http://github.com/jonathanmorgan/django_reference_data.  If not, see
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 
+# python_utilities
+from python_utilities.network.network_helper import Network_Helper
+
 # Create your models here.
 
 @python_2_unicode_compatible
@@ -142,6 +145,8 @@ class Reference_Domain( models.Model ):
     domain_name = models.CharField( max_length = 255 )
     domain_path = models.CharField( max_length = 255, null = True, blank = True )
     long_name = models.TextField( null = True, blank = True )
+    full_url = models.CharField( max_length = 255, null = True, blank = True )
+    protocol = models.CharField( max_length = 255, null = True, blank = True )
     description = models.CharField( max_length = 255, null = True, blank = True )
     source = models.CharField( max_length = 255, null = True, blank = True )
     source_details = models.CharField( max_length = 255, null = True, blank = True )
@@ -160,10 +165,22 @@ class Reference_Domain( models.Model ):
     label = models.CharField( max_length = 255, null = True, blank = True )
     external_id = models.CharField( max_length = 255, null = True, blank = True )
     guid = models.CharField( max_length = 255, null = True, blank = True )
+    is_url_ok = models.BooleanField( blank = True, default = False )
+    redirect_status = models.IntegerField( null = True, blank = True )
+    redirect_full_url = models.CharField( max_length = 255, null = True, blank = True )
+    redirect_protocol = models.CharField( max_length = 255, null = True, blank = True )
+    redirect_domain_name = models.CharField( max_length = 255, null = True, blank = True )
+    redirect_domain_path = models.CharField( max_length = 255, null = True, blank = True )
+    parent = models.ForeignKey( 'self', null = True, blank = True )
     create_date = models.DateTimeField( auto_now_add = True )
     last_update = models.DateTimeField( auto_now = True )
 
     
+    #============================================================================
+    # instance variables
+    #============================================================================
+
+
     #============================================================================
     # class methods
     #============================================================================
@@ -176,57 +193,22 @@ class Reference_Domain( models.Model ):
         value_OUT = ""
         
         # declare variables
-        domain_name = ""
-        slash_index = -1
-        url_path = ""
+        network_helper = None
         
-        # place the URL in domain_name
-        domain_name = URL_IN.strip()
-        
-        # strip off https://
-        domain_name = domain_name.replace( "https://", "" )
-        
-        # strip off http://
-        domain_name = domain_name.replace( "http://", "" )
-        
-        # strip off www.
-        domain_name = domain_name.replace( "www.", "" )
-        
-        # normal domaindomain path?
-        slash_index = domain_name.find( "/" )
-        if ( slash_index >= 0 ):
-        
-            # there is path information in domain.  Take string from "/" to end,
-            #    store it as domain path.  Take string up to but not including
-            #    the "/", keep that as domain.
-            url_path = domain_name[ slash_index : ]
-            domain_name = domain_name[ : slash_index ]
-        
-        else:
-        
-            # no slashes - make sure path is empty.
-            url_path = ""
-        
-        #-- END check to see if path information. --#
-        
-        # is path just "/"?  If so, set to "".
-        if ( url_path == "/" ):
-        
-            # yup. Set to "".
-            url_path = ""
-        
-        #-- END check to see if path is just "/" --#
-        
+        # make network helper instance 
+        network_helper = Network_Helper()
+
         # see what we've been asked to return
         if ( return_type_IN == cls.URL_PARSE_RETURN_PATH ):
         
-            # path
-            value_OUT = url_path
+            # path  (everything after the domain, including query string, etc.,
+            #    not just the path).
+            value_OUT = network_helper.parse_URL( URL_IN, Network_Helper.URL_PARSE_RETURN_ALL_AFTER_DOMAIN )
             
         else:
         
             # domain
-            value_OUT = domain_name
+            value_OUT = network_helper.parse_URL( URL_IN, Network_Helper.URL_PARSE_RETURN_TRIMMED_DOMAIN )
             
         #-- END check to see what we return. --#
         
@@ -239,6 +221,77 @@ class Reference_Domain( models.Model ):
     #============================================================================
     # instance methods
     #============================================================================
+
+
+    def parse_and_store_URL( self, URL_IN = "", is_redirect = False, *args, **kwargs ):
+        
+        '''
+        Accepts a URL.  Parses it, places the components in nested django fields.
+           Returns the trimmed domain name.
+        '''
+        
+        # return reference
+        value_OUT = ""
+        
+        # declare variables
+        network_helper = None
+        trimmed_domain = ""
+        path = ""
+        protocol = ""
+        params = ""
+        query_string = ""
+        domain_path = ""
+        
+        # make network helper instance 
+        network_helper = Network_Helper()
+
+        # Got a URL?
+        if ( ( URL_IN ) and ( URL_IN != None ) and ( URL_IN != "" ) ):
+        
+            # yes - use call to get domain to parse URL.
+            trimmed_domain = network_helper.parse_URL( URL_IN, Network_Helper.URL_PARSE_RETURN_TRIMMED_DOMAIN )
+            
+            # get path (everything after the domain, not just the path).
+            path = network_helper.parse_URL( URL_IN, Network_Helper.URL_PARSE_RETURN_ALL_AFTER_DOMAIN, use_last_parse_result = True )
+            
+            # get parse result for the rest.
+            parse_result = network_helper.latest_parse_result
+
+            # protocol
+            protocol = parse_result.scheme
+
+            # is this a redirect URL?
+            if ( is_redirect == True ):
+            
+                # redirect - store in redirect fields.
+                self.redirect_domain_name = trimmed_domain
+                self.redirect_domain_path = path
+                self.redirect_full_url = URL_IN
+                self.redirect_protocol = protocol
+
+            else:
+            
+                # not redirect - store in redirect fields.
+                self.domain_name = trimmed_domain
+                self.domain_path = path
+                self.full_url = URL_IN
+                self.protocol = protocol
+
+            #-- END check to see where we store the values. --#
+            
+            # return trimmed domain.
+            value_OUT = trimmed_domain
+            
+        else:
+        
+            # domain
+            value_OUT = ""
+            
+        #-- END check to see what we return. --#
+        
+        return value_OUT
+        
+    #-- END method parse_and_store_URL() --#
 
 
     def __str__(self):

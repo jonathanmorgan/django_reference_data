@@ -213,9 +213,13 @@ for state_bold_tag in state_bold_tag_list:
                     #-- END check to see if we update existing. --#
                     
                     # set values
-                    current_domain_instance.domain_name = current_domain_name
-                    current_domain_instance.domain_path = current_domain_path
+                    #current_domain_instance.domain_name = current_domain_name
+                    #current_domain_instance.domain_path = current_domain_path
                     #current_domain_instance.long_name = None
+
+                    # parse and store the URL information.
+                    current_domain_instance.parse_and_store_URL( cleaned_url )
+                        
                     current_domain_instance.description = current_description
                     current_domain_instance.source = current_source
                     current_domain_instance.source_details = current_source_details

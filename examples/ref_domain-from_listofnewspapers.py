@@ -108,42 +108,9 @@ for state_li in state_li_list:
             # description
             current_description = paper_name
             
-            # domain name
-            current_domain_name = paper_url
-            
-            # strip off https://
-            current_domain_name = current_domain_name.replace( "https://", "" )
-            
-            # strip off http://
-            current_domain_name = current_domain_name.replace( "http://", "" )
-            
-            # strip off www.
-            current_domain_name = current_domain_name.replace( "www.", "" )
-            
-            # domain path?
-            slash_index = current_domain_name.find( "/" )
-            if ( slash_index >= 0 ):
-            
-                # there is path information in domain.  Take string from "/" to end,
-                #    store it as domain path.  Take string up to but not including
-                #    the "/", keep that as domain.
-                current_domain_path = current_domain_name[ slash_index : ]
-                current_domain_name = current_domain_name[ : slash_index ]
-            
-            else:
-            
-                # no slashes - make sure path is empty.
-                current_domain_path = ""
-            
-            #-- END check to see if path information. --#
-            
-            # is path just "/"?  If so, set to "".
-            if ( current_domain_path == "/" ):
-            
-                # yup. Set to "".
-                current_domain_path = ""
-            
-            #-- END check to see if path is just "/" --#
+            # parse out domain and path
+            current_domain_name = django_reference_data.models.Reference_Domain.parse_URL( paper_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_DOMAIN )
+            current_domain_path = django_reference_data.models.Reference_Domain.parse_URL( paper_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_PATH )
     
             # no rank
             
@@ -181,9 +148,13 @@ for state_li in state_li_list:
             #-- END check to see if we update existing. --#
             
             # set values
-            current_domain_instance.domain_name = current_domain_name
-            current_domain_instance.domain_path = current_domain_path
+            #current_domain_instance.domain_name = current_domain_name
+            #current_domain_instance.domain_path = current_domain_path
             #current_domain_instance.long_name = None
+
+            # parse and store the URL information.
+            current_domain_instance.parse_and_store_URL( paper_url )
+                        
             current_domain_instance.description = current_description
             current_domain_instance.source = current_source
             current_domain_instance.source_details = current_source_details
