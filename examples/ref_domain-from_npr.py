@@ -112,6 +112,7 @@ select_sql = ""
 start_dt = None
 end_dt = None
 city_counter = -1
+no_location_match_counter = -1
 domain_counter = -1
 no_match_counter = -1
 error_counter = -1
@@ -168,6 +169,9 @@ current_is_news = True
 # initialize exception helper
 my_exception_helper = ExceptionHelper()
 
+# set up API key
+my_api_key = "<API_key>"
+
 # configure database helper
 db_host = "localhost"
 db_port = 3306
@@ -199,6 +203,7 @@ result_count = int( db_read_cursor.rowcount )
 # loop.
 domain_counter = 0
 city_counter = 0
+no_location_match_counter
 no_match_counter = 0
 error_counter = 0
 for i in range( result_count ):
@@ -338,6 +343,7 @@ for i in range( result_count ):
                         station_description = station_call_letters + " " + station_band + ", " + station_frequency + " - " + station_market_city + ", " + station_state + " ( NPR ID: " + station_id + " )"
                         
                         print( "    - Found station: " + station_description )
+                        domain_counter += 1
             
                         # parse out domain and path
                         current_domain_name = django_reference_data.models.Reference_Domain.parse_URL( station_org_url, django_reference_data.models.Reference_Domain.URL_PARSE_RETURN_DOMAIN )
@@ -357,17 +363,29 @@ for i in range( result_count ):
                             try:
                 
                                 # first, try looking up existing domain.
-                                domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
-                                domain_rs = domain_rs.filter( domain_name = current_domain_name )
-                                domain_rs = domain_rs.filter( domain_path = current_domain_path )
-                                current_domain_instance = domain_rs.get( description = station_description )
+                                #domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
+                                #domain_rs = domain_rs.filter( domain_name = current_domain_name )
+                                #domain_rs = domain_rs.filter( domain_path = current_domain_path )
+                                #current_domain_instance = domain_rs.get( description = station_description )
+                            
+                                # use lookup_record() method.  Returns None if
+                                #    not found.
+                                current_domain_instance = django_reference_data.models.Reference_Domain.lookup_record( source_IN = current_source, domain_name_IN = current_domain_name, domain_path_IN = current_domain_path, description_IN = station_description )
+                                
+                                # got anything?
+                                if ( current_domain_instance == None ):
+                                
+                                    # nothing returned.  Create new instance.
+                                    current_domain_instance = django_reference_data.models.Reference_Domain()
+                                    no_match_counter += 1
+                                
+                                #-- END check to see if domain found --#
                             
                             except:
                             
                                 # No matching row.  Create new instance.
                                 current_domain_instance = django_reference_data.models.Reference_Domain()
-                                
-                                domain_counter += 1
+                                no_match_counter += 1
                                 
                             #-- END attempt to get existing row. --#
                 
@@ -425,7 +443,7 @@ for i in range( result_count ):
                 print( "    - station element has no ID attribute, likely because our API query returned no results, and so returned a single empty station element, with no ID.  Moving on." )
                 
                 # no results
-                no_match_counter += 1
+                no_location_match_counter += 1
             
                 # output XML
                 if ( debug_flag == True ):
@@ -462,6 +480,7 @@ print( "==> Started at " + str( start_dt ) )
 print( "==> Finished at " + str( end_dt ) )
 print( "==> Duration: " + str( end_dt - start_dt ) )
 print( "==> Cities searched: " + str( city_counter ) )
+print( "==> No Location Match: " + str( no_location_match_counter ) )
 print( "==> Domains: " + str( domain_counter ) )
 print( "==> No Match: " + str( no_match_counter ) )
 print( "==> Errors: " + str( error_counter ) )

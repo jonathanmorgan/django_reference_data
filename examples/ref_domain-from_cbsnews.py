@@ -1,6 +1,7 @@
 # imports
 
 # urllib
+import datetime
 import urllib2
 
 # beautifulsoup 4
@@ -12,7 +13,17 @@ import python_utilities.beautiful_soup.beautiful_soup_helper
 # django_reference_data
 import django_reference_data.models
 
+#===============================================================================#
 # declare variables
+#===============================================================================#
+
+# declare variables - tracking performance
+start_dt = None
+end_dt = None
+domain_counter = -1
+no_match_counter = -1
+error_counter = -1
+my_exception_helper = None
 
 # constants-ish
 do_update_existing = True
@@ -56,6 +67,16 @@ current_rank = -1
 station_name = ""
 station_url = ""
 cleaned_url = ""
+
+#===============================================================================#
+# Code
+#===============================================================================#
+
+# capture start datetime, initialize counters
+start_dt = datetime.datetime.now()
+domain_counter = 0
+no_match_counter = 0
+error_counter = 0
 
 # init beautiful soup helper
 bs_helper = python_utilities.beautiful_soup.beautiful_soup_helper.BeautifulSoupHelper()
@@ -130,6 +151,7 @@ for state_bold_tag in state_bold_tag_list:
                 
                     # no name attribute.  This is a new station link.
                     print( "- Found station: " + current_sibling.get_text() )
+                    domain_counter += 1
                     
                     # get values
                     station_name = current_sibling.get_text()
@@ -183,7 +205,7 @@ for state_bold_tag in state_bold_tag_list:
                     current_domain_type = django_reference_data.models.Reference_Domain.DOMAIN_TYPE_NEWS
                     current_is_news = True
                     
-                    print( "    - Domain: " + current_domain_name + "; path: " + current_domain_path )
+                    print( "    - Cleaned URL: " + cleaned_url + "; Domain: " + current_domain_name + "; path: " + current_domain_path )
                     
                     # get Reference_Domain instance
                     
@@ -193,15 +215,29 @@ for state_bold_tag in state_bold_tag_list:
                         try:
             
                             # first, try looking up existing domain.
-                            domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
-                            domain_rs = domain_rs.filter( domain_name = current_domain_name )
-                            domain_rs = domain_rs.filter( domain_path = current_domain_path )
-                            current_domain_instance = domain_rs.get( description = current_description )
+                            #domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
+                            #domain_rs = domain_rs.filter( domain_name = current_domain_name )
+                            #domain_rs = domain_rs.filter( domain_path = current_domain_path )
+                            #current_domain_instance = domain_rs.get( description = current_description )
                         
+                            # use lookup_record() method.  Returns None if
+                            #    not found.
+                            current_domain_instance = django_reference_data.models.Reference_Domain.lookup_record( source_IN = current_source, domain_name_IN = current_domain_name, domain_path_IN = current_domain_path, description_IN = current_description )
+                            
+                            # got anything?
+                            if ( current_domain_instance == None ):
+                            
+                                # nothing returned.  Create new instance.
+                                current_domain_instance = django_reference_data.models.Reference_Domain()
+                                no_match_counter += 1
+                            
+                            #-- END check to see if domain found --#
+
                         except:
                         
                             # No matching row.  Create new instance.
                             current_domain_instance = django_reference_data.models.Reference_Domain()
+                            no_match_counter += 1
                             
                         #-- END attempt to get existing row. --#
         
@@ -252,3 +288,12 @@ for state_bold_tag in state_bold_tag_list:
     #-- END
 
 #-- END loop over state bold tags. --#
+
+# a little overview
+end_dt = datetime.datetime.now()
+print( "==> Started at " + str( start_dt ) )
+print( "==> Finished at " + str( end_dt ) )
+print( "==> Duration: " + str( end_dt - start_dt ) )
+print( "==> Domains: " + str( domain_counter ) )
+print( "==> No Match: " + str( no_match_counter ) )
+print( "==> Errors: " + str( error_counter ) )

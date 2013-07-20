@@ -22,11 +22,16 @@ along with http://github.com/jonathanmorgan/django_reference_data.  If not, see
 
 # imports
 
+# python base packages
+import datetime
+
 # django
 from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 
 # python_utilities
+from python_utilities.exceptions.exception_helper import ExceptionHelper
+from python_utilities.network.http_helper import Http_Helper
 from python_utilities.network.network_helper import Network_Helper
 
 # Create your models here.
@@ -136,6 +141,9 @@ class Reference_Domain( models.Model ):
     # URL parse return types
     URL_PARSE_RETURN_DOMAIN = "domain"
     URL_PARSE_RETURN_PATH = "path"
+    
+    # statuses
+    STATUS_SUCCESS = "Success!"
 
     
     #============================================================================
@@ -167,6 +175,7 @@ class Reference_Domain( models.Model ):
     guid = models.CharField( max_length = 255, null = True, blank = True )
     is_url_ok = models.BooleanField( blank = True, default = False )
     redirect_status = models.IntegerField( null = True, blank = True )
+    redirect_message = models.CharField( max_length = 255, null = True, blank = True )
     redirect_full_url = models.CharField( max_length = 255, null = True, blank = True )
     redirect_protocol = models.CharField( max_length = 255, null = True, blank = True )
     redirect_domain_name = models.CharField( max_length = 255, null = True, blank = True )
@@ -184,6 +193,121 @@ class Reference_Domain( models.Model ):
     #============================================================================
     # class methods
     #============================================================================
+
+
+    @classmethod
+    def lookup( cls, source_IN = None, domain_name_IN = None, domain_path_IN = None, description_IN = None, *args, **kwargs ):
+
+        '''
+        accepts values for fields that can be used to find a matching domain
+           record.  For any whose value is not None, filters on that value.
+           Returns ResultSet.
+           
+        parameters:
+        - source_IN - source value to find an exact match for.
+        - domain_name_IN - domain name to find an exact match for.
+        - domain_path_IN - domain path to find an exact match for.
+        - description_IN - domain description field to find an exact match for.
+        '''
+        
+        # return reference
+        rs_OUT = None
+        
+        # declare variables
+
+        # first, get RecordSet.
+        rs_OUT = Reference_Domain.objects
+
+        # got a source?
+        if source_IN != None:
+        
+            rs_OUT = rs_OUT.filter( source = source_IN )
+            
+        #-- END check for source --#
+        
+        # domain name?
+        if domain_name_IN != None:
+        
+            rs_OUT = rs_OUT.filter( domain_name = domain_name_IN )
+            
+        #-- END check for domain name --#
+                
+        # domain path?
+        if domain_path_IN != None:
+        
+            # yes.  Is it "/"?
+            if ( domain_path_IN == "/" ):
+            
+                # just for now, because I changed how I parse domains and paths,
+                #    if "/", either match with "/" or "".
+                rs_OUT = rs_OUT.filter( models.Q( domain_path = domain_path_IN ) | models.Q( domain_path = "" ) )
+            
+            else:
+            
+                # not "/", process normally.
+                rs_OUT = rs_OUT.filter( domain_path = domain_path_IN )
+                
+            #-- END check to see if path is "/" --#
+            
+        #-- END check for domain path --#
+                
+        # description
+        if description_IN != None:
+        
+            rs_OUT = rs_OUT.filter( description = description_IN )
+            
+        #-- END check for description --#
+                
+        return rs_OUT
+
+    #-- END method lookup() --#
+
+
+    @classmethod
+    def lookup_record( cls, source_IN = None, domain_name_IN = None, domain_path_IN = None, description_IN = None, *args, **kwargs ):
+
+        '''
+        accepts values for fields that can be used to find a matching domain
+           record.  For any whose value is not None, filters on that value.
+           Then, checks to see if one record results.  If yes, returns it.  If
+           no (either 0 or > 1), returns None.
+           
+        parameters:
+        - source_IN - source value to find an exact match for.
+        - domain_name_IN - domain name to find an exact match for.
+        - domain_path_IN - domain path to find an exact match for.
+        - description_IN - domain description field to find an exact match for.
+        '''
+        
+        # return reference
+        record_OUT = None
+        
+        # declare variables
+        match_rs = None
+        match_count = -1
+
+        # first, get RecordSet.
+        match_rs = cls.lookup( source_IN = source_IN, domain_name_IN = domain_name_IN, domain_path_IN = domain_path_IN, description_IN = description_IN )
+
+        # count?
+        match_count = match_rs.count()
+        
+        # 1, or not?
+        if ( match_count == 1 ):
+        
+            # there is one.  Return it.
+            record_OUT = match_rs.get()
+        
+        else:
+        
+            # either 0 or more than one.  return None.
+            record_OUT = None
+        
+        #-- END check to see if one match, or other than one --#
+            
+        return record_OUT
+
+    #-- END method lookup_record() --#
 
 
     @classmethod
@@ -216,6 +340,107 @@ class Reference_Domain( models.Model ):
         
     #-- END method parse_URL() --#
     
+    
+    @classmethod
+    def test_URLs( cls, print_details_IN = False, domain_rs_IN = None, *args, **kwargs ):
+    
+        '''
+        Loops over all the domains in the database.  For each, calls the
+           test_URL() method on it, then if not success, outputs status.
+
+        parameters:
+        - print_details_IN - boolean - defaults to False - if True, outputs details using the print() function.
+        - domain_rs_IN - ResultSet you want to process - defaults to None - if None, all domains are processed.  If this is populated, just processes the domains in the result set.
+
+        postconditions: all records in the database will have their URLs checked,
+           and so will be updated.
+        '''
+        
+        # declare variables
+        domain_rs = None
+        domain_count = -1
+        domain_counter = -1
+        current_domain = None
+        current_status = ""
+        start_dt = None
+        success_count = -1
+        error_count = -1
+        end_dt = None
+        
+        start_dt = datetime.datetime.now()
+        
+        # get list of domains to process.
+        if ( ( domain_rs_IN ) and ( domain_rs_IN != None ) ):
+
+            # one passed in.  Use it.
+            domain_rs = domain_rs_IN
+
+        else:
+        
+            # nothing passed in.  Process them all.
+            domain_rs = cls.objects.all()
+            
+        #-- END check to see if result set passed in. --#
+        
+        domain_count = domain_rs.count()
+        
+        # loop, calling the test_URL() method on each.
+        domain_counter = 0
+        success_count = 0
+        error_count = 0
+        for current_domain in domain_rs:
+        
+            domain_counter += 1
+            
+            # call the test_URL() method.
+            current_status = current_domain.test_URL()
+            
+            # Success!?
+            if ( current_status != cls.STATUS_SUCCESS ):
+            
+                # Does status contain "ERROR"?
+                if "ERROR" in current_status:
+
+                    # not success - increment error count, then output status.
+                    error_count += 1
+                    
+                else:
+                    
+                    # not success, but not error.  Likely means no redirect.
+                    success_count += 1
+
+                #-- END check to see if error --#
+
+                # print details?
+                if ( print_details_IN == True ): 
+    
+                    print( "- STATUS ( domain " + str( domain_counter ) + " of " + str( domain_count ) + ", ID = " + str( current_domain.id ) + " ) - " + current_status )
+                    
+                #-- END check to see if we print details. --#
+
+            else:
+            
+                # success!
+                success_count += 1
+
+            #-- END check to see if success. --#
+        
+        #-- END loop over domains --#
+    
+        # print details?
+        if ( print_details_IN == True ): 
+
+            # a little overview
+            end_dt = datetime.datetime.now()
+            print( "==> Started at " + str( start_dt ) )
+            print( "==> Finished at " + str( end_dt ) )
+            print( "==> Duration: " + str( end_dt - start_dt ) )
+            print( "==> Success: " + str( success_count ) )
+            print( "==> Errors: " + str( error_count ) )
+                        
+        #-- END check to see if we print details. --#
+
+    #-- END method test_URLs() --#
 
 
     #============================================================================
@@ -223,7 +448,7 @@ class Reference_Domain( models.Model ):
     #============================================================================
 
 
-    def parse_and_store_URL( self, URL_IN = "", is_redirect = False, *args, **kwargs ):
+    def parse_and_store_URL( self, URL_IN = "", is_redirect_IN = False, *args, **kwargs ):
         
         '''
         Accepts a URL.  Parses it, places the components in nested django fields.
@@ -261,7 +486,7 @@ class Reference_Domain( models.Model ):
             protocol = parse_result.scheme
 
             # is this a redirect URL?
-            if ( is_redirect == True ):
+            if ( is_redirect_IN == True ):
             
                 # redirect - store in redirect fields.
                 self.redirect_domain_name = trimmed_domain
@@ -292,6 +517,163 @@ class Reference_Domain( models.Model ):
         return value_OUT
         
     #-- END method parse_and_store_URL() --#
+
+
+    def test_URL( self, *args, **kwargs ):
+        
+        '''
+        Retrieves the full URL from the current instance.  Uses the urllib2
+           library to load the page.  If the page loads, sets the is_url_ok flag
+           to true.  Uses the results of the page load to see if there was a
+           redirect (status of 301 or 302).  If so, parses and stores information
+           on the final URL that was loaded in the redirect_* fields in this
+           object.  Returns a status message that starts with the OK flag, then
+           describes whether a redirect occurred, and if so, where the redirect
+           went.
+           
+        Preconditions:
+        - must have loaded data into this instance from a row in the database.
+        '''
+        
+        # return reference
+        status_OUT = ""
+        
+        # declare variables
+        me = "test_URL"
+        http_helper = None
+        url_to_test = ""
+        redirect_url = ""
+        redirect_status_list = ""
+        redirect_status_count = -1
+        last_redirect_status = -1
+        exception_helper = None
+        exception_message = ""
+        exception_status = ""
+        
+        # create HTTP Helper
+        http_helper = Http_Helper()
+        
+        # get URL.
+        url_to_test = self.full_url
+        
+        # got a full URL?
+        if ( ( not url_to_test ) or ( url_to_test == None ) or ( url_to_test == "" ) ):
+        
+            # no.  Make one out of domain.
+            url_to_test = "http://" + self.domain_name
+            
+            # got a path?
+            if ( ( self.domain_path ) and ( self.domain_path != None ) and ( self.domain_path != "" ) ):
+            
+                # yes.  Append it, as well.
+                url_to_test += self.domain_path
+            
+            #-- END check to see if domain path. --#
+        
+        #-- END check to see if URL --#
+        
+        # now, see if we have a URL again.
+        if ( ( url_to_test ) and ( url_to_test != None ) and ( url_to_test != "" ) ):
+        
+            # try/except to capture problems with URL not resolving at all.
+            try:
+            
+                # we have a URL.  Use the HTTP helper to test.
+                redirect_url = http_helper.get_redirect_url_mechanize( url_to_test )
+                
+                # see if there is a status code.
+                redirect_status_list = http_helper.redirect_status_list
+                redirect_status_count = len( redirect_status_list )
+                if ( redirect_status_count > 0 ):
+                
+                    # yes.  Get latest one (use pop()).
+                    last_redirect_status = redirect_status_list.pop()
+                
+                #-- END check to see if any statuses --#
+                
+                # got anything back?
+                if ( ( redirect_url ) and ( redirect_url != None ) and ( redirect_url != "" ) ):
+                
+                    # yes.  Update the record.
+                    
+                    # URL is OK.
+                    self.is_url_ok = True
+                    
+                    # store HTTP status code.
+                    self.redirect_status = last_redirect_status
+                    
+                    # store full URL.
+                    self.redirect_full_url = redirect_url
+                    
+                    # parse and store components of URL.
+                    self.parse_and_store_URL( URL_IN = redirect_url, is_redirect_IN = True )
+                    
+                    # set status to Success!
+                    status_OUT = self.STATUS_SUCCESS
+
+                else:
+                
+                    # no.  No exception, not redirect.  Just a normal URL.
+                    self.is_url_ok = True
+                    
+                    # set status
+                    status_OUT = "Attempt to find redirect returned no URL.  Test URL = " + url_to_test
+                    
+                    # got a status?
+                    if ( ( last_redirect_status ) and ( last_redirect_status > 0 ) ):
+                    
+                        # there is one.  Append it to message.
+                        status_OUT += "; HTTP status code: " + str( last_redirect_status )
+                    
+                    #-- END check to see if HTTP status code --#
+                
+                #-- END check to see if redirect URL --#
+                
+            except Exception as e:
+            
+                # likely URL not found.  URL is not OK, do nothing else.
+                self.is_url_ok = False
+                
+                # URLError (and child HTTPError) will have a "reason".
+                if hasattr( e, 'reason' ):
+                
+                    # yes.  Store it in the redirect_message field.
+                    self.redirect_message = e.reason
+                    
+                #-- END check to see if "reason" --#
+
+                # HTTPError will have an HTTP status "code".
+                if hasattr( e, 'code' ):
+                    
+                    # yes, store it in the redirect_status field.
+                    self.redirect_status = e.code
+                    
+                #-- END check to see if there is a code.
+                
+                # make exception helper class.
+                exception_helper = ExceptionHelper()
+                
+                # process the exception
+                exception_message = "ERROR - Exception caught in " + me + " trying to resolve URL " + url_to_test + "."
+                exception_status = exception_helper.process_exception( exception_IN = e, message_IN = exception_message, print_details_IN = False )
+                
+                # set status to description of exception
+                status_OUT = exception_helper.last_exception_details
+            
+            #-- END try/except to deal with unknown domains/URLs. --#
+            
+            # save the results.
+            self.save()
+        
+        else:
+        
+            status_OUT = "ERROR - Could not find a URL to test for this record."
+        
+        #-- END check to make sure we have a URL --#
+        
+        return status_OUT
+        
+    #-- END method test_URL() --#
 
 
     def __str__(self):

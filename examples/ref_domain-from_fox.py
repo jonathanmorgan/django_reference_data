@@ -8,8 +8,9 @@ Will need to do some manual cleanup after you run this script.  Couldn't write
 # imports
 
 # python base libraries
-import urllib2
+import datetime
 import re
+import urllib2
 
 # beautifulsoup 4
 from bs4 import BeautifulSoup
@@ -90,6 +91,15 @@ city_state_zip_item_list = []
 # declare variables - store in database.
 current_domain_instance = None
 
+# declare variables - tracking performance
+start_dt = None
+end_dt = None
+domain_counter = -1
+no_match_counter = -1
+error_counter = -1
+station_counter = -1
+my_exception_helper = None
+
 # make instance of BeautifulSoupHelper
 bs_helper = python_utilities.beautiful_soup.beautiful_soup_helper.BeautifulSoupHelper()
 
@@ -105,6 +115,12 @@ page_list.append( "http://www.fox.com/_inc/affiliates/affiliates_details_other.p
 #===============================================================================#
 # Code
 #===============================================================================#
+
+# capture start datetime, initialize counters
+start_dt = datetime.datetime.now()
+domain_counter = 0
+no_match_counter = 0
+error_counter = 0
 
 # loop over pages
 page_counter = 0
@@ -331,6 +347,7 @@ for page_url in page_list:
             
                 # adding to database.
                 print( "    ===> adding station: " + station_description )
+                domain_counter += 1
 
                 # domain name
                 cleaned_url = station_url
@@ -362,15 +379,29 @@ for page_url in page_list:
                     try:
         
                         # first, try looking up existing domain.
-                        domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
-                        domain_rs = domain_rs.filter( domain_name = station_domain_name )
-                        domain_rs = domain_rs.filter( domain_path = station_domain_path )
-                        current_domain_instance = domain_rs.get( description = station_description )
+                        #domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
+                        #domain_rs = domain_rs.filter( domain_name = station_domain_name )
+                        #domain_rs = domain_rs.filter( domain_path = station_domain_path )
+                        #current_domain_instance = domain_rs.get( description = station_description )
                     
+                        # use lookup_record() method.  Returns None if
+                        #    not found.
+                        current_domain_instance = django_reference_data.models.Reference_Domain.lookup_record( source_IN = current_source, domain_name_IN = station_domain_name, domain_path_IN = station_domain_path, description_IN = station_description )
+                        
+                        # got anything?
+                        if ( current_domain_instance == None ):
+                        
+                            # nothing returned.  Create new instance.
+                            current_domain_instance = django_reference_data.models.Reference_Domain()
+                            no_match_counter += 1
+                        
+                        #-- END check to see if domain found --#
+
                     except:
                     
                         # No matching row.  Create new instance.
                         current_domain_instance = django_reference_data.models.Reference_Domain()
+                        no_match_counter += 1
                         
                     #-- END attempt to get existing row. --#
     
@@ -428,3 +459,12 @@ for page_url in page_list:
     #-- END loop over <dd> elements ---#
 
 #-- END loop over pages in page list. --#
+
+# a little overview
+end_dt = datetime.datetime.now()
+print( "==> Started at " + str( start_dt ) )
+print( "==> Finished at " + str( end_dt ) )
+print( "==> Duration: " + str( end_dt - start_dt ) )
+print( "==> Domains: " + str( domain_counter ) )
+print( "==> No Match: " + str( no_match_counter ) )
+print( "==> Errors: " + str( error_counter ) )

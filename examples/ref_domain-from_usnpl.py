@@ -37,6 +37,7 @@ state_counter = -1
 station_counter = -1
 news_station_counter = -1
 domain_counter = -1
+no_match_counter = -1
 error_counter = -1
 my_exception_helper = None
 
@@ -133,6 +134,8 @@ state_counter = 0
 station_counter = 0
 news_station_counter = 0 
 domain_counter = 0
+no_match_counter = 0
+error_counter = 0
 
 # loop over states, opening up each's page and processing newspapers within.
 for state_a in state_a_list:
@@ -338,15 +341,30 @@ for state_a in state_a_list:
                             try:
                 
                                 # first, try looking up existing domain.
-                                domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
-                                domain_rs = domain_rs.filter( domain_name = station_domain_name )
-                                domain_rs = domain_rs.filter( domain_path = station_domain_path )
-                                current_domain_instance = domain_rs.get( description = station_description )
+                                #domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
+                                #domain_rs = domain_rs.filter( domain_name = station_domain_name )
+                                #domain_rs = domain_rs.filter( domain_path = station_domain_path )
+                                #current_domain_instance = domain_rs.get( description = station_description )
+
+                                # use lookup_record() method.  Returns None if
+                                #    not found.
+                                current_domain_instance = django_reference_data.models.Reference_Domain.lookup_record( source_IN = current_source, domain_name_IN = station_domain_name, domain_path_IN = station_domain_path, description_IN = station_description )
+                                
+                                # got anything?
+                                if ( current_domain_instance == None ):
+                                
+                                    # nothing returned.  Create new instance.
+                                    current_domain_instance = django_reference_data.models.Reference_Domain()
+                                    no_match_counter += 1
+                                
+                                #-- END check to see if domain found --#
                             
                             except:
                             
                                 # No matching row.  Create new instance.
                                 current_domain_instance = django_reference_data.models.Reference_Domain()
+                                no_match_counter += 1
+                                error_counter += 1
                                 
                             #-- END attempt to get existing row. --#
             
@@ -428,4 +446,5 @@ print( "==> States: " + str( state_counter ) )
 print( "==> Stations: " + str( station_counter ) )
 print( "==> News Stations: " + str( news_station_counter ) )
 print( "==> Domains: " + str( domain_counter ) )
+print( "==> No Match: " + str( no_match_counter ) )
 print( "==> Errors: " + str( error_counter ) )

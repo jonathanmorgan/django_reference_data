@@ -15,6 +15,10 @@ do_update_existing = True
 source = "nbc.com"
 source_detail = "http://www.nbc.com/local-stations/"
 
+#===============================================================================#
+# declare variables
+#===============================================================================#
+
 # declare variables
 db_host = ""
 db_port = -1
@@ -46,6 +50,18 @@ current_is_news = True
 start_dt = None
 end_dt = None
 domain_counter = -1
+no_match_counter = -1
+error_counter = -1
+
+#===============================================================================#
+# Code
+#===============================================================================#
+
+# capture start datetime, initialize counters
+start_dt = datetime.datetime.now()
+domain_counter = 0
+no_match_counter = 0
+error_counter = 0
 
 # configure database helper
 db_host = "localhost"
@@ -53,9 +69,6 @@ db_port = 3306
 db_username = "<username>"
 db_password = "<password>"
 db_database = "<database_name>"
-
-# capture start datetime
-start_dt = datetime.datetime.now()
 
 # get instance of mysqldb helper
 db_helper = MySQLdb_Helper( db_host, db_port, db_username, db_password, db_database )
@@ -110,21 +123,36 @@ for i in range( result_count ):
         current_domain_type = django_reference_data.models.Reference_Domain.DOMAIN_TYPE_NEWS
         current_is_news = True
 
+        print( "==> Cleaned URL: " + nbc_url + "; Domain: " + current_domain_name + "; path: " + current_domain_path + "; description: " + nbc_description )
+
         # update existing?
         if ( do_update_existing == True ):
 
             try:
 
                 # first, try looking up existing domain.
-                domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
-                domain_rs = domain_rs.filter( domain_name = current_domain_name )
-                domain_rs = domain_rs.filter( domain_path = current_domain_path )
-                current_domain_instance = domain_rs.get( description = current_description )
+                #domain_rs = django_reference_data.models.Reference_Domain.objects.filter( source = current_source )
+                #domain_rs = domain_rs.filter( domain_name = current_domain_name )
+                #domain_rs = domain_rs.filter( domain_path = current_domain_path )
+                #current_domain_instance = domain_rs.get( description = current_description )
             
+                # use lookup_record() method.  Returns None if not found.
+                current_domain_instance = django_reference_data.models.Reference_Domain.lookup_record( source_IN = current_source, domain_name_IN = current_domain_name, domain_path_IN = current_domain_path, description_IN = nbc_description )
+                
+                # got anything?
+                if ( current_domain_instance == None ):
+                
+                    # nothing returned.  Create new instance.
+                    current_domain_instance = django_reference_data.models.Reference_Domain()
+                    no_match_counter += 1
+                
+                #-- END check to see if domain found --#
+
             except:
             
                 # No matching row.  Create new instance.
                 current_domain_instance = django_reference_data.models.Reference_Domain()
+                no_match_counter += 1
                 
             #-- END attempt to get existing row. --#
 
@@ -177,3 +205,5 @@ print( "==> Started at " + str( start_dt ) )
 print( "==> Finished at " + str( end_dt ) )
 print( "==> Duration: " + str( end_dt - start_dt ) )
 print( "==> Domains: " + str( domain_counter ) )
+print( "==> No Match: " + str( no_match_counter ) )
+print( "==> Errors: " + str( error_counter ) )
