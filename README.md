@@ -20,6 +20,10 @@ Django application for accruing reference data that you can use across applicati
 
         (sudo) pip install South
 
+- install mechanize, a library that implements a basic browser client in python.
+
+        (sudo) pip install mechanize
+    
 - in your work directory, create a django site.
 
         django-admin.py startproject <site_directory>

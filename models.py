@@ -23,6 +23,7 @@ along with http://github.com/jonathanmorgan/django_reference_data.  If not, see
 # imports
 
 # python base packages
+import copy
 import datetime
 
 # django
@@ -33,6 +34,7 @@ from django.utils.encoding import python_2_unicode_compatible
 from python_utilities.exceptions.exception_helper import ExceptionHelper
 from python_utilities.network.http_helper import Http_Helper
 from python_utilities.network.network_helper import Network_Helper
+from python_utilities.strings.string_helper import StringHelper
 
 # Create your models here.
 
@@ -181,6 +183,7 @@ class Reference_Domain( models.Model ):
     redirect_domain_name = models.CharField( max_length = 255, null = True, blank = True )
     redirect_domain_path = models.CharField( max_length = 255, null = True, blank = True )
     parent = models.ForeignKey( 'self', null = True, blank = True )
+    status = models.CharField( max_length = 255, null = True, blank = True )
     create_date = models.DateTimeField( auto_now_add = True )
     last_update = models.DateTimeField( auto_now = True )
 
@@ -188,6 +191,9 @@ class Reference_Domain( models.Model ):
     #============================================================================
     # instance variables
     #============================================================================
+
+
+    str_convert_to_ascii = False
 
 
     #============================================================================
@@ -228,7 +234,7 @@ class Reference_Domain( models.Model ):
         # domain name?
         if domain_name_IN != None:
         
-            rs_OUT = rs_OUT.filter( domain_name = domain_name_IN )
+            rs_OUT = rs_OUT.filter( domain_name__iexact = domain_name_IN )
             
         #-- END check for domain name --#
                 
@@ -308,6 +314,292 @@ class Reference_Domain( models.Model ):
         return record_OUT
 
     #-- END method lookup_record() --#
+
+
+    @classmethod
+    def make_rows_for_redirect_URLs( cls, print_details_IN = False, domain_rs_IN = None, *args, **kwargs ):
+    
+        '''
+        Loops over all the domains in the database (or all the domains in the
+           result set passed in) where:
+           - actual domain and redirect domain are not the same.
+           - redirect domain does not contain the actual domain.
+        For each that matches, checks to see if the redirect domain has a record
+           in the database with the redirect domain as the actual domain.  If
+           yes, moves on.  If not already a row for the redirect domain:
+           - duplicates the current domain into a new model instance.
+           - changes the actual domain and URL to the redirect domain and URL.
+           - sets the parent in the redirect domain row to the current row.
+           - saves the new model instance.
+
+        parameters:
+        - print_details_IN - boolean - defaults to False - if True, outputs details using the print() function.
+        - domain_rs_IN - ResultSet you want to process - defaults to None - if None, all domains are processed.  If this is populated, just processes the domains in the result set.
+
+        postconditions: if no result set passed in, all records in the database
+           will be processed,  but only those whose redirect URL doesn't already
+           have a separate row will result in the creation of a new row.
+        '''
+        
+        # declare variables
+        debug_flag = True
+        domain_rs = None
+        domain_count = -1
+        domain_counter = -1
+        start_dt = None
+        empty_redirect_count = -1
+        same_domain_count = -1
+        contained_count = -1
+        existing_count = -1
+        new_domain_count = -1
+        error_count = 0
+        domain_map = {}
+        eligible_domain_map = {}
+        new_domain_map = {}
+        current_status = ""
+        current_domain = None
+        current_domain_name = ""
+        compare_domain_name = ""
+        current_redirect_name = ""
+        compare_redirect_name = ""
+        current_status = ""
+        existing_check_rs = None
+        redirect_instance = None
+        end_dt = None
+        
+        start_dt = datetime.datetime.now()
+        
+        # get list of domains to process.
+        if ( ( domain_rs_IN ) and ( domain_rs_IN != None ) ):
+
+            # one passed in.  Use it.
+            domain_rs = domain_rs_IN
+
+        else:
+        
+            # nothing passed in.  Process all that have a redirect status.
+            domain_rs = cls.objects.all()
+            
+            # don't want redirect status to be NULL.
+            domain_rs = domain_rs.exclude( redirect_status__isnull = True )
+            
+        #-- END check to see if result set passed in. --#
+        
+        domain_count = domain_rs.count()
+
+        # initialize counters        
+        domain_counter = 0
+        empty_redirect_count = 0
+        same_domain_count = 0
+        contained_count = 0
+        existing_count = 0
+        new_domain_count = 0
+        error_count = 0
+
+        # loop, looking for redirect URLs that are different from main URL.
+        for current_domain in domain_rs:
+        
+            domain_counter += 1
+            current_status = ""
+            
+            # get domain and redirect domain
+            current_domain_name = current_domain.domain_name
+            current_redirect_name = current_domain.redirect_domain_name
+            
+            # First, see if there is a non-empty redirect domain name.
+            if ( ( current_redirect_name ) and ( current_redirect_name != '' ) ):
+    
+                if ( print_details_IN == True ): 
+    
+                    print( "Processing domain ID " + str( current_domain.pk ) + " ( #" + str( domain_counter ) + " ) - domain:  \"" + current_domain_name + "\"; redirect domain: \"" + current_redirect_name + "\"" )
+                    
+                #-- END check to see if we print details. --#
+
+                # create values for comparison
+                compare_domain_name = current_domain_name.lower()
+                compare_redirect_name = current_redirect_name.lower()
+                
+                # add it to domain map, to keep track of distinct domain names.
+                if ( compare_redirect_name in domain_map ):
+                
+                    # increment counter
+                    domain_map[ compare_redirect_name ] = domain_map[ compare_redirect_name ] + 1
+                
+                else:
+                
+                    # not yet in map.  Add it.
+                    domain_map[ compare_redirect_name ] = 1
+                
+                #-- END processing for distinct domain name map --#
+                    
+                # got one. Same as domain name?
+                if ( current_domain_name.lower() != compare_redirect_name ):
+                
+                    # not the same.  Does the redirect domain name contain the
+                    #    domain name?
+                    if ( current_domain_name.lower() not in compare_redirect_name ):
+                    
+                        # domain is eligible to be added - update in map.
+                        if ( compare_redirect_name in eligible_domain_map ):
+                        
+                            # increment counter
+                            eligible_domain_map[ compare_redirect_name ] = eligible_domain_map[ compare_redirect_name ] + 1
+                        
+                        else:
+                        
+                            # not yet in map.  Add it.
+                            eligible_domain_map[ compare_redirect_name ] = 1
+                        
+                        #-- END processing for eligible domain name --#
+                        
+                        # also check to see if it is in new map (don't add,
+                        #    just update).
+                        if ( compare_redirect_name in new_domain_map ):
+                        
+                            # increment counter
+                            new_domain_map[ compare_redirect_name ] = new_domain_map[ compare_redirect_name ] + 1
+                        
+                        #-- END record-keeping for new domain name --#
+                    
+                        # domain name is not contained in redirect domain name.
+                        #    See if the redirect domain name already has a row.
+                        existing_check_rs = cls.lookup( domain_name_IN = current_redirect_name )
+                        
+                        # got anything?
+                        if ( existing_check_rs.count() == 0 ):
+                        
+                            # domain is eligible to be added - update in map.
+                            if ( compare_redirect_name in new_domain_map ):
+                            
+                                # increment counter
+                                new_domain_map[ compare_redirect_name ] = new_domain_map[ compare_redirect_name ] + 1
+                                
+                                # also, error - never should get a domain here
+                                #    that is already in the new map.
+                                print( "ERROR - domain " + current_redirect_name + " is in the new map, so should have been added to the database, but also registers as not already being in the database." )
+                                error_count += 1
+                            
+                            else:
+                            
+                                # not yet in map.  Add it.
+                                new_domain_map[ compare_redirect_name ] = 1
+                            
+                            #-- END processing for eligible domain name --#
+
+                            # no match.  Copy instance.
+                            redirect_instance = copy.copy( current_domain )
+                            
+                            # empty ID
+                            redirect_instance.pk = None
+
+                            # associate with parent.
+                            redirect_instance.parent = current_domain
+
+                            # swap redirect information into main domain fields.
+                            redirect_instance.domain_name = current_domain.redirect_domain_name
+                            redirect_instance.domain_path = current_domain.redirect_domain_path
+                            redirect_instance.full_url = current_domain.redirect_full_url
+                            redirect_instance.protocol = current_domain.redirect_protocol
+
+                            # clear out the redirect fields.
+                            redirect_instance.redirect_status = None
+                            redirect_instance.redirect_message = None
+                            redirect_instance.redirect_full_url = None
+                            redirect_instance.redirect_protocol = None
+                            redirect_instance.redirect_domain_name = None
+                            redirect_instance.redirect_domain_path = None
+                            
+                            # save
+                            redirect_instance.save()
+                            
+                            # increment new domain counter and set status
+                            new_domain_count += 1
+                            redirect_instance.str_convert_to_ascii = True
+                            current_status = "\"" + current_redirect_name + "\" placed in new domain row: " + str( redirect_instance )
+                        
+                            # update status
+                            current_domain.status = "added"
+                            current_domain.save()
+                        
+                        else:
+                        
+                            # at least one match.  Move on.
+                            existing_count += 1
+                            current_status = "moving on - \"" + current_redirect_name + "\" already has its own row ( match count: " + str( existing_check_rs.count() ) + " )."
+                        
+                            # update status
+                            current_domain.status = "exists"
+                            current_domain.save()
+                        
+                        #-- END check to see if already exists --#
+                    
+                    else:
+                    
+                        # redirect domain contains original domain
+                        contained_count += 1
+                        current_status = "moving on - \"" + current_redirect_name + "\" IN \"" + current_domain_name + "\"."
+                    
+                        # update status
+                        current_domain.status = "contains"
+                        current_domain.save()
+                    
+                    #-- END check to see if domain name is in redirect domain name. --#
+                
+                else:
+                
+                    # redirect domain is same as original domain.
+                    same_domain_count += 1
+                    current_status = "moving on - \"" + current_redirect_name + "\" = \"" + current_domain_name + "\"."
+                    
+                    # update status
+                    current_domain.status = "same"
+                    current_domain.save()
+                
+                #-- END check to see if domain name same as redirect domain name. --#
+                
+            else:
+            
+                # No redirect domain
+                empty_redirect_count += 1
+                current_status = "moving on - No redirect domain."
+
+                # update status
+                current_domain.status = "empty"
+                current_domain.save()
+            
+            #-- END check to see if there is a redirect domain name --#
+            
+            # print details?
+            if ( print_details_IN == True ): 
+
+                print( "- STATUS ( domain " + str( domain_counter ) + " of " + str( domain_count ) + ", ID = " + str( current_domain.id ) + " ) - " + current_status )
+                
+            #-- END check to see if we print details. --#
+        
+        #-- END loop over domains --#
+    
+        # print details?
+        if ( print_details_IN == True ): 
+
+            # a little overview
+            end_dt = datetime.datetime.now()
+            print( "==> Started at " + str( start_dt ) )
+            print( "==> Finished at " + str( end_dt ) )
+            print( "==> Duration: " + str( end_dt - start_dt ) )
+            print( "==> Errors: " + str( error_count ) )
+            print( "==> Domains processed: " + str( domain_counter ) )
+            print( "==> Unique domain names: " + str( len( domain_map ) ) )
+            print( "==> -- Eligible for adding: " + str( len( eligible_domain_map ) ) )
+            print( "==> -- Added to database: " + str( len( new_domain_map ) ) )
+            print( "==> No redirect: " + str( empty_redirect_count ) )
+            print( "==> Same as domain: " + str( same_domain_count ) )
+            print( "==> Contains domain: " + str( contained_count ) )
+            print( "==> Domain in DB: " + str( existing_count ) )
+            print( "==> * New domain: " + str( new_domain_count ) )
+                        
+        #-- END check to see if we print details. --#
+
+    #-- END method make_rows_for_redirect_URLs() --#
 
 
     @classmethod
@@ -676,29 +968,50 @@ class Reference_Domain( models.Model ):
     #-- END method test_URL() --#
 
 
-    def __str__(self):
+    def __str__( self ):
         
         # return reference
         string_OUT = ""
         
+        # declare variables
+        temp_string = ""
+        has_non_ascii_characters = False
+        
         # id?
         if ( ( self.id ) and ( self.id != None ) and ( self.id > 0 ) ):
         
-            string_OUT += "Domain " + str( self.id )
+            string_OUT += "Domain " + str( self.id ) + " - "
         
         #-- END check to see if id --#
         
         # name
         if( self.domain_name ):
         
-            string_OUT += " - " + self.domain_name
+            string_OUT += self.domain_name
         
         #-- END check to see if domain_name --#
         
         # description
         if ( self.description ):
         
-            string_OUT += " - " + self.description
+            temp_string = self.description
+            
+            if ( self.str_convert_to_ascii == True ):
+
+                # check for non-ASCII characters
+                has_non_ascii_characters = StringHelper.has_non_ascii_characters( self.description )
+                
+                # yes?
+                if ( has_non_ascii_characters == True ):
+                
+                    # convert to ASCII
+                    temp_string = temp_string.encode( encoding = "ascii", errors = "xmlcharrefreplace" )
+                
+                #-- END check for non-ASCII characters. --#
+
+            #-- END check to see if we are to convert to ASCII. --#
+            
+            string_OUT += " - " + temp_string
         
         #-- END check to see if description --#
         

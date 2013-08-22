@@ -7,7 +7,7 @@ from django_reference_data.models import Reference_Domain
 domain_rs = Reference_Domain.objects.filter( is_url_ok = False )
 
 # output count, just for record-keeping.
-print( domain_rs.count() ) # 638, for example
+print( domain_rs.count() ) # 638, for example, or 629
 
 # invoke test method.
 test_result = Reference_Domain.test_URLs( print_details_IN = True, domain_rs_IN = domain_rs )
