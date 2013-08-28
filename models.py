@@ -1028,3 +1028,46 @@ class Reference_Domain( models.Model ):
 
 
 #-- END class Reference_Domain --#
+
+
+#-- ========================================================================= --#
+#-- Abstract classes --#
+#-- ========================================================================= --#
+
+@python_2_unicode_compatible
+class Abstract_Filterable( models.Model ):
+
+
+    #----------------------------------------------------------------------
+    # constants-ish
+    #----------------------------------------------------------------------
+
+
+    #============================================================================
+    # Django model fields.
+    #============================================================================
+
+    # filtering
+    filter_1 = models.BooleanField( default = False )
+    filter_2 = models.BooleanField( default = False )
+    filter_3 = models.BooleanField( default = False )
+    filter_4 = models.BooleanField( default = False )
+    filter_5 = models.BooleanField( default = False )
+    filter_6 = models.BooleanField( default = False )
+    filter_7 = models.BooleanField( default = False )
+    filter_8 = models.BooleanField( default = False )
+    filter_9 = models.BooleanField( default = False )
+    filter_10 = models.BooleanField( default = False )
+    
+    #============================================================================
+    # meta class
+    #============================================================================
+
+    class Meta:
+    
+        abstract = True
+
+    #-- END Meta class --#
+
+
+#-- END abstract class Abstract_Filterable() --#
