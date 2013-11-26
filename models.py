@@ -1070,4 +1070,15 @@ class Abstract_Filterable( models.Model ):
     #-- END Meta class --#
 
 
+    def __str__( self ):
+        
+        # return reference
+        string_OUT = ""
+        
+        string_OUT = "Abstract_Filterable base str() method - Please override."
+        
+        return string_OUT
+        
+    #-- END method __str__() --#
+        
 #-- END abstract class Abstract_Filterable() --#
